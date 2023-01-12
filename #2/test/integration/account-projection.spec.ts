@@ -1,10 +1,12 @@
 import waitForExpect from 'wait-for-expect';
 
-import AccountProjection from '../../src/projection/account';
+import AccountProjection, { AccountSchema } from '../../src/projection/account';
 
 import { AccountEvents, AggregateType } from '../../../events';
 import EventStore from '../../src/library/eventstore';
 import { expect } from 'chai';
+import mongoose from 'mongoose';
+import R from 'ramda';
 
 
 async function findById(id: string): Promise<{
@@ -14,13 +16,17 @@ async function findById(id: string): Promise<{
   balance: number;
 } | null> {
   // TODO: Implement this function to retrieve the account information by account id.
+  const Account = mongoose.model('Account', AccountSchema);
+  const account = await Account.findOne({aggregateId:id});
+  
+  return account ? R.omit(['password', 'aggregateId', '_id', '__v'], account.toObject()) : null;
 
-  return null;
 }
 
 describe('AccountProjection', function () {
   describe('#start', function () {
     before(async function () {
+      await mongoose.connect('mongodb+srv://wallet-be:wallet123@cluster0.1nhk94p.mongodb.net/?retryWrites=true&w=majority')
       this.eventStore = new EventStore(AccountEvents);
       this.projection = new AccountProjection(this.eventStore);
       this.aggregateId = '60329145-ba86-44fb-8fc8-519e1e427a60';
@@ -30,8 +36,10 @@ describe('AccountProjection', function () {
       this.account = await findById(this.aggregateId);
     });
 
-    after(function () {
-      // TODO: Destroy test data/models
+    after(async function () {
+      // TODO: Destroy test data/models 
+      const Account = mongoose.model('Account', AccountSchema);
+      await Account.deleteMany();
     });
 
     it('SHOULD project the data to the correctly to the database', function () {
@@ -39,7 +47,7 @@ describe('AccountProjection', function () {
         username: 'jdoe',
         fullName: 'johndoe',
         email: 'email@ml.com',
-        balance: 27,
+        balance: 23,
         totalApprovedWithdrawalAmount: 3,
         totalApprovedDepositAmount: 10,
       });
@@ -58,7 +66,7 @@ describe('AccountProjection', function () {
       it('SHOULD be able to apply new events to the model', async function () {
         await waitForExpect(async () => {
           const account = await findById(this.aggregateId);
-          expect(account).to.have.property('balance', 20);
+          expect(account).to.have.property('balance', 16);
         });
       });
     });

@@ -1,6 +1,7 @@
 import { AccountCreatedEvent, AccountUpdatedEvent, AggregateType, CreditedEvent, DebitEvent } from '../../../events';
 import EventStore from '../library/eventstore';
 import Aggregate from '../library/aggregate';
+import { AccountAlreadyExistsError, AccountNotFoundError, InsufficientFundError } from '../library/errors';
 
 export type Account = {
   username: string;
@@ -38,27 +39,77 @@ export default class AccountAggregate extends Aggregate<AccountState> {
    */
   protected apply(event: AccountAggregateEvents): AccountState {
     // TODO: Implement this method
-
-    return null;
+    switch(event.type) {
+      case 'AccountCreated':
+        return {
+          ...event.body,
+          balance:0,
+        };
+      case 'AccountUpdated':
+        if(!this.state){
+          return null;
+        }
+        return {
+          username: event.body.username || this.state.username,
+          fullName: event.body.fullName || this.state.fullName,
+          password: event.body.password || this.state.password,
+          email: event.body.email || this.state.email,
+          balance: this.state.balance,
+      };
+      case 'BalanceCredited':
+        if(!this.state){
+          return null;
+        }
+        return {
+          ...this.state,
+          balance: this.state.balance + event.body.amount,
+        };
+      case 'BalanceDebited':
+        if(!this.state){
+          return null;
+        }
+        return {
+          ...this.state,
+          balance: this.state.balance - event.body.amount,
+        };
+      default:
+        return this.state;
+    }
   }
  
-  public static createAccount(id: string, info: Omit<Account, 'balance'>, eventStore: EventStore) {
+  public static createAccount(id: string, info: Omit<Account, 'balance'>, eventStore: EventStore)
+  {
     const account = this.findById(id, eventStore);
+    if(account.state){
+      throw new AccountAlreadyExistsError(id);
+    }
     account.createEvent('AccountCreated', info);
     return id;
   }
 
   public updateAccount(info: Partial<Omit<Account, 'balance'>>) {
+    if(!this.state){
+      throw new AccountNotFoundError(this.id);
+    }
     this.createEvent('AccountUpdated', info);
     return true;
   }
 
   public creditBalance(amount: number) {
+    if(!this.state){
+      throw new AccountNotFoundError(this.id);
+    }
     this.createEvent('BalanceCredited', { amount });
     return true;
   }
 
   public debitBalance(amount: number) {
+    if(!this.state){
+      throw new AccountNotFoundError(this.id)
+    }
+    if(amount>this.state.balance){
+      throw new InsufficientFundError(this.id);
+    }
     this.createEvent('BalanceDebited', { amount });
     return true;
   }

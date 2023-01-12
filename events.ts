@@ -13,7 +13,9 @@ export type Event<T = any, B = any> = {
 };
 
 export type AccountCreatedEvent = Event<'AccountCreated', { username: string; fullName: string; password: string; email: string }>;
-export type AccountUpdatedEvent = Event<'AccountUpdated', { username?: string; fullName?: string; email?: string; }>;
+export type AccountUpdatedEvent = Event<'AccountUpdated', {
+  [x: string]: string | undefined; username?: string; fullName?: string; email?: string; 
+}>;
 export type CreditedEvent = Event<'BalanceCredited', { amount: number }>;
 export type DebitEvent = Event<'BalanceDebited', { amount: number }>;
 

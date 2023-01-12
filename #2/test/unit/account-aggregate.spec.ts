@@ -1,7 +1,7 @@
 import chai, { assert, expect } from 'chai';
 import chaiAsPromised from 'chai-as-promised';
 import { AccountEvents, AggregateType, Event } from '../../../events';
-import { AccountNotFoundError, InsufficientFundError } from '../../src/library/errors';
+import { AccountAlreadyExistsError, AccountNotFoundError, InsufficientFundError } from '../../src/library/errors';
 import EventStore from '../../src/library/eventstore';
 import AccountAggregate from '../../src/aggregate/account';
 
@@ -48,7 +48,7 @@ describe('AccountAggregate', function () {
     });
 
     describe('GIVEN account does not have account events for the AggregateType Balance', function () {
-      before(function () {
+      beforeEach(function () {
         this.aggregate = AccountAggregate.findById('0bec2908-02eb-4c35-9a58-5a72183f986f', this.eventStore);
       });
 
@@ -77,7 +77,7 @@ describe('AccountAggregate', function () {
             username: 'cherryp',
           },
           this.eventStore,
-        )).to.be.rejected;
+        )).to.throw(AccountAlreadyExistsError);
       });
     });
 
@@ -105,6 +105,7 @@ describe('AccountAggregate', function () {
     describe('GIVEN account exists', function () {
       it('SHOULD be able to update the account', function () {
         const account = AccountAggregate.findById('60329145-ba86-44fb-8fc8-519e1e427a60', this.eventStore);
+       
         expect(account.updateAccount({ username: 'storm' })).to.be.ok;
 
         expect(account.state).to.have.property('username', 'storm');
